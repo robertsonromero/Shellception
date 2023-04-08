@@ -1,11 +1,3 @@
-//Robertson Romero
-//I pledge my honor that I have abided by the Stevens honor system.
-
-//Extra Credit:
-//colorized ls: line 68
-//find: line 108
-//stat: line 204
-//ll: line 310
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <unistd.h>
@@ -76,13 +68,7 @@ int userin(char* command){
     else if(strcmp(command, "find") == 0){
         val = 3;
     }
-    else if(strcmp(command, "stat") == 0){
-        val = 4;
-    }
-    else if(strcmp(command, "ll") == 0){
-        val = 5;
-    }
-
+   
     return val;
 }
 
@@ -220,85 +206,6 @@ char* perm(char* file){
     return permstr;
 }
 
-void stat_cmd(char* file){
-    struct passwd *pwd = getpwuid(getuid());
-    struct stat info;
-    struct statx iinfo;
-    char* permis;
-  
-     if(strcmp(file, "~") == 0){
-        file = pwd->pw_dir;
-    }
-
-    else if(strpbrk("~",file) != NULL && strlen(file) > 1){
-        char *space = strstr(file,"~");
-        if (space != NULL) {
-            *space = '\0';
-        }
-        
-        char buffer[PATH_MAX];
-        snprintf(buffer,sizeof(buffer), "%s%s", pwd->pw_dir, space + 1);
-        file = buffer;
-       
-    }
-    if(stat(file, &info) == -1){
-        fprintf(stderr, "Error: %s.\n", strerror(errno));
-    }
-    if (statx(AT_FDCWD, file, AT_STATX_SYNC_AS_STAT, STATX_ALL, &iinfo) == -1) {
-        fprintf(stderr, "Error: %s.\n", strerror(errno));
-    }
-    char mtime[30];
-    char atime[30];
-    char ctime[30];
-    strftime(mtime, sizeof(mtime), "%Y-%m-%d %H:%M:%S", localtime(&info.st_ctime));
-    strftime(atime, sizeof(atime), "%Y-%m-%d %H:%M:%S", localtime(&info.st_ctime));
-    strftime(ctime, sizeof(ctime), "%Y-%m-%d %H:%M:%S", localtime(&info.st_ctime));
-   
-    time_t msec = time(NULL);
-    struct tm *t = localtime(&msec);
-    char secbuf[10];
-    strftime(secbuf, sizeof(secbuf), "%z", t);
-    
-    char buffer[PATH_MAX];
-    strftime(buffer,sizeof(buffer), "%Y-%m-%d %H:%M:%S", localtime((time_t *)&iinfo.stx_btime.tv_sec));
-
-    permis = perm(file);
-    printf("  Size: %ld             Blocks: %ld          IO Block: %ld   ",info.st_size, info.st_blocks, info.st_blksize);
-    switch (info.st_mode & S_IFMT) {
-        case S_IFBLK:  
-            printf("block device\n");            
-            break;
-        case S_IFCHR:  
-            printf("character device\n");        
-            break;
-        case S_IFDIR:  
-            printf("directory\n");               
-            break;
-        case S_IFIFO:  
-            printf("FIFO/pipe\n");               
-            break;
-        case S_IFLNK:  
-            printf("symlink\n");                 
-            break;
-        case S_IFREG:  
-            printf("regular file\n");            
-            break;
-        case S_IFSOCK: 
-            printf("socket\n");                  
-            break;
-        default:       
-            printf("unknown\n");                
-            break;
-    }
-    printf("Device: %lxh/%ldd     Inode: %ld      Links: %ld\n", info.st_dev, info.st_dev, info.st_ino, info.st_nlink);
-    printf("Access: (%04o/%s)  Uid: ( %d/  %s)   Gid: ( %d/  %s)\n",(info.st_mode & 07777), permis , info.st_uid, pwd->pw_name, info.st_gid, pwd->pw_name);
-    printf("Access: %s.%09ld %s\n",atime, info.st_atim.tv_nsec, secbuf);
-    printf("Modify: %s.%09ld %s\n", mtime, info.st_mtim.tv_nsec, secbuf); 
-    printf("Change: %s.%09ld %s\n",ctime, info.st_ctim.tv_nsec, secbuf);
-    printf(" Birth: %s.%09d %s\n",buffer,iinfo.stx_btime.tv_nsec, secbuf);
-
-    free(permis);
-}
 
 void sig_handler(int sig) {
     interrupted = 1;
@@ -306,70 +213,6 @@ void sig_handler(int sig) {
    
 }
 
-
-void ll_cmd(char* currdir){
-
-    struct passwd *pwd = getpwuid(getuid());
-    struct group *grp = getgrgid(getgid());
-    DIR* dp;
-    
-    struct dirent* dirp;
-    struct stat info;
-    if(stat(currdir, &info) == -1){
-        fprintf(stderr, "Error: %s.\n", strerror(errno));
-    }   
-    if(strcmp(currdir, "~") == 0){
-        currdir = pwd->pw_dir;
-    }
-    else if(strpbrk("~",currdir) != NULL && strlen(currdir) > 1){
-        char *space = strstr(currdir,"~");
-        if (space != NULL) {
-            *space = '\0';
-        }
-        
-        char buffer[PATH_MAX];
-        snprintf(buffer,sizeof(buffer), "%s%s", pwd->pw_dir, space + 1);
-        currdir = buffer;
-    }
-
-    dp = opendir(currdir);
-    if(dp == NULL){
-        fprintf(stderr, "Error: %s.\n", strerror(errno));
-        return;
-    }
-    
-    if(S_ISDIR(info.st_mode)){
-        printf("total %ld\n", info.st_blocks);
-    }
-    char* permis;
- 
-    while((dirp = readdir(dp)) != NULL){
-        if(stat(dirp->d_name, &info) == -1){
-            fprintf(stderr, "Error: %s.\n", strerror(errno));
-        }  
-        struct tm *local_time = localtime(&info.st_mtime);
-        char time_str[80];
-        strftime(time_str, sizeof(time_str), "%b %d %H:%M", local_time);
-         char* newpath = (char*)malloc(sizeof(newpath) + sizeof(dirp->d_name) + 2);
-        if(newpath == NULL){
-            fprintf(stderr,"Error: malsloc() failed. %s.\n",strerror(errno));
-        }
-        strcpy(newpath,currdir);
-        sprintf(newpath,"%s/%s",currdir,dirp->d_name);
-        permis = perm(newpath);
-        printf("%s %ld %s %s %ld %s ",permis , info.st_nlink, pwd->pw_name, grp->gr_name, info.st_size, time_str);
-
-        if(dirp->d_type == DT_DIR){
-            printf("%s%s%s\n",GREEN, dirp->d_name, DEFAULT);
-        }
-        else{
-            printf("%s\n",dirp->d_name);
-        }
-        free(permis);
-    }
-    free(permis);
-    closedir(dp);
-}
 
 int main(){
     struct sigaction action;
@@ -437,17 +280,6 @@ int main(){
                 break;
             case 3:
                 find_cmd(args[1],args[2], i);
-                break;
-            case 4:
-                stat_cmd(args[1]);
-                break;
-            case 5:
-                if(args[1] == NULL){
-                    ll_cmd(currentpath);
-                }
-                else{
-                    ll_cmd(args[1]);
-                }
                 break;
                 
             default:
